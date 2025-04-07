@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import config from '../config';
 
 /**
  * Component for inputting and saving API keys
@@ -11,6 +12,10 @@ function ApiKeyInput({ onSave, savedKey }) {
   const [apiKey, setApiKey] = useState('');
   const [isVisible, setIsVisible] = useState(false);
   
+  /**
+   * Handle form submission to save the API key
+   * @param {Event} e - Form submission event
+   */
   const handleSubmit = (e) => {
     e.preventDefault();
     if (apiKey.trim()) {
@@ -19,11 +24,18 @@ function ApiKeyInput({ onSave, savedKey }) {
     }
   };
   
+  /**
+   * Toggle password visibility
+   */
+  const toggleVisibility = () => {
+    setIsVisible(!isVisible);
+  };
+  
   return (
     <div className="api-key-input">
-      <h3>OogaBooga API Key</h3>
+      <h3>API Key Required</h3>
       <p>
-        An API key is required to fetch token prices from OogaBooga.
+        An API key is required to fetch token prices and swap data.
         {savedKey && ' You have already set an API key.'}
       </p>
       
@@ -33,13 +45,16 @@ function ApiKeyInput({ onSave, savedKey }) {
             type={isVisible ? 'text' : 'password'}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter your OogaBooga API key"
+            placeholder="Enter your API key"
             className="api-key-field"
+            autoComplete="off"
+            aria-label="API Key"
           />
           <button 
             type="button" 
-            onClick={() => setIsVisible(!isVisible)}
+            onClick={toggleVisibility}
             className="toggle-visibility"
+            aria-label={isVisible ? "Hide API key" : "Show API key"}
           >
             {isVisible ? 'Hide' : 'Show'}
           </button>

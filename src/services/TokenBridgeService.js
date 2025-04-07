@@ -1,8 +1,9 @@
 /**
- * TokenBridge.js - Service for token operations in the Safe App
+ * @file TokenBridgeService.js
+ * @description Service for token operations in the Safe App
  * 
- * This service handles token prices, creating swap transaction bundles,
- * and preparing transactions for Safe.
+ * This service handles token price fetching, creating swap transaction bundles,
+ * and preparing transactions for the Safe multi-signature wallet.
  */
 
 import { ethers } from 'ethers';
@@ -11,7 +12,7 @@ import berabundlerService from './BerabundlerService';
 /**
  * Service for fetching token prices and preparing swap transactions
  */
-class TokenBridge {
+class TokenBridgeService {
   constructor() {
     this.priceCache = {};
     this.priceExpiry = 5 * 60 * 1000; // 5 minutes
@@ -22,10 +23,11 @@ class TokenBridge {
   
   /**
    * Initialize the bridge with API key and Safe SDK
-   * @param {ethers.providers.Web3Provider} provider - Ethers provider (not used in Safe mode)
+   * @param {ethers.providers.Web3Provider|null} provider - Ethers provider (not used in Safe mode)
    * @param {string} apiKey - OogaBooga API key
-   * @param {ethers.Signer} signer - Ethers signer (not used in Safe mode)
+   * @param {ethers.Signer|null} signer - Ethers signer (not used in Safe mode)
    * @param {Object} safeSDK - Safe Apps SDK instance
+   * @returns {boolean} True if initialization was successful
    */
   initialize(provider, apiKey, signer, safeSDK) {
     this.apiKey = apiKey;
@@ -36,6 +38,7 @@ class TokenBridge {
   
   /**
    * Check if the bridge is initialized
+   * @returns {boolean} True if the service is properly initialized
    */
   isInitialized() {
     return Boolean(this.apiKey);
@@ -50,11 +53,10 @@ class TokenBridge {
    */
   async apiCallWithAuth(endpoint) {
     if (!this.apiKey) {
-      throw new Error("OogaBooga API key not set. Please set it in settings.");
+      throw new Error("API key not set. Please provide an API key in the settings.");
     }
     
     const url = endpoint.startsWith('http') ? endpoint : `${this.apiBaseUrl}${endpoint}`;
-    console.log("Making API request to:", url);
     
     try {
       const requestConfig = {
@@ -76,7 +78,7 @@ class TokenBridge {
           const errorResponse = await response.text();
           errorDetails = errorResponse;
         } catch (e) {
-          console.log('Could not parse error response:', e);
+          console.warn('Could not parse error response:', e);
         }
         
         throw new Error(`API error: ${response.status} ${response.statusText}${errorDetails ? ` - ${errorDetails}` : ''}`);
@@ -95,13 +97,18 @@ class TokenBridge {
    */
   async getTokenPrice(tokenAddress) {
     try {
-      // Check cache first
+      if (!tokenAddress) {
+        return null;
+      }
+      
+      // Check cache first for faster responses
       if (this.priceCache[tokenAddress] && 
           Date.now() - this.priceCache[tokenAddress].timestamp < this.priceExpiry) {
         return this.priceCache[tokenAddress].price;
       }
       
-      // Format token address correctly
+      // Format token address correctly for API
+      // Convert native token references to the zero address
       const tokenParam = tokenAddress === 'BERA' || tokenAddress === 'native' 
         ? '0x0000000000000000000000000000000000000000' 
         : tokenAddress;
@@ -111,7 +118,7 @@ class TokenBridge {
       
       // Response is an array of {address, price} objects
       if (response && Array.isArray(response)) {
-        // Find the token in the price list
+        // Find the token in the price list (case-insensitive comparison)
         const tokenPrice = response.find(item => 
           item.address.toLowerCase() === tokenParam.toLowerCase()
         );
@@ -119,7 +126,7 @@ class TokenBridge {
         if (tokenPrice && tokenPrice.price) {
           const price = parseFloat(tokenPrice.price);
           
-          // Update cache
+          // Update cache with expiration timestamp
           this.priceCache[tokenAddress] = {
             price,
             timestamp: Date.now()
@@ -129,7 +136,7 @@ class TokenBridge {
         }
       }
       
-      // If we reach here, price wasn't found
+      // Price wasn't found in the response
       return null;
       
     } catch (error) {
@@ -139,44 +146,60 @@ class TokenBridge {
   }
 
   /**
-   * Creates a swap bundle for the Safe
+   * Creates a swap bundle for the Safe wallet
    * @param {string} safeAddress - Safe wallet address
    * @param {Array<Object>} tokensToSwap - Array of token objects with amount to swap
    * @param {Object} options - Additional options for bundle creation
    * @param {Object} options.targetToken - The token to swap to (defaults to BERA)
+   * @param {number} options.slippage - Maximum acceptable slippage (default: 0.05 or 5%)
    * @returns {Promise<Object>} Bundle containing transaction data
    */
   async createSwapBundle(safeAddress, tokensToSwap, options = {}) {
     try {
-      const targetToken = options.targetToken || { address: '0x0000000000000000000000000000000000000000', symbol: 'BERA', decimals: 18 };
-      console.log(`Creating swap bundle for Safe at ${safeAddress} with ${tokensToSwap.length} tokens, target: ${targetToken.symbol}`);
+      if (!safeAddress) {
+        throw new Error("Safe address is required");
+      }
+
+      if (!tokensToSwap || !tokensToSwap.length) {
+        throw new Error("No tokens provided for swap");
+      }
       
-      // Filter out native BERA tokens first
+      // Set default target token to BERA if not specified
+      const targetToken = options.targetToken || { 
+        address: '0x0000000000000000000000000000000000000000', 
+        symbol: 'BERA', 
+        decimals: 18 
+      };
+      
+      const slippage = options.slippage || 0.05; // Default 5% slippage
+      
+      // Filter out native BERA tokens (can't swap native token to itself)
       const tokensToProcess = tokensToSwap.filter(token => {
         return !(token.address === 'native' || token.symbol === 'BERA') && token.address;
       });
       
-      console.log(`Processing ${tokensToProcess.length} non-native tokens in parallel`);
+      if (tokensToProcess.length === 0) {
+        return {
+          error: "No valid tokens to swap",
+          safeAddress,
+          swapTxs: [],
+          approvalTxs: []
+        };
+      }
       
-      // Create array of API call promises
+      // Create array of API call promises for parallel processing
       const apiCallPromises = tokensToProcess.map(async (token) => {
-        console.log(`Setting up API call for ${token.symbol} (${token.address})`);
-        
-        // Convert the token amount to wei
-        const amountIn = ethers.utils.parseUnits(
-          token.amount.toString(),
-          token.decimals || 18
-        );
-        
-        console.log(`Amount: ${token.amount}, Decimals: ${token.decimals}, Parsed: ${amountIn.toString()}`);
-        
-        // Create API endpoint for swap quote - Using the Safe address as the destination
-        const targetTokenAddress = targetToken.address;
-        const endpoint = `/v1/swap?tokenIn=${token.address}&tokenOut=${targetTokenAddress}&amount=${amountIn.toString()}&slippage=0.05&to=${safeAddress}`;
-        console.log("API endpoint:", endpoint);
-        
-        // Return an object with all the necessary information
         try {
+          // Convert the token amount to wei
+          const amountIn = ethers.utils.parseUnits(
+            token.amount.toString(),
+            token.decimals || 18
+          );
+          
+          // Create API endpoint for swap quote
+          const targetTokenAddress = targetToken.address;
+          const endpoint = `/v1/swap?tokenIn=${token.address}&tokenOut=${targetTokenAddress}&amount=${amountIn.toString()}&slippage=${slippage}&to=${safeAddress}`;
+          
           const quoteResponse = await this.apiCallWithAuth(endpoint);
           
           if (!quoteResponse || !quoteResponse.tx) {
@@ -189,11 +212,10 @@ class TokenBridge {
             quoteResponse
           };
         } catch (error) {
-          console.error(`Error getting quote for ${token.symbol}:`, error);
           return {
             token,
-            amountIn,
-            error
+            amountIn: null,
+            error: error.message || "Failed to get swap quote"
           };
         }
       });
@@ -207,11 +229,8 @@ class TokenBridge {
       
       // Process API results and build transactions
       for (const result of results) {
-        // Skip null results or those with errors
+        // Skip results with errors
         if (!result || result.error) {
-          if (result && result.error) {
-            console.error(`Error for ${result.token.symbol}:`, result.error);
-          }
           continue;
         }
         
@@ -220,7 +239,6 @@ class TokenBridge {
         
         // Ensure the router address is valid
         if (!tx.to) {
-          console.error(`Invalid router address in swap response for ${token.symbol}`);
           continue;
         }
         
@@ -267,7 +285,15 @@ class TokenBridge {
         swapTransactions.push(swapTx);
       }
       
-      console.log(`Created ${approvalTransactions.length} approval transactions and ${swapTransactions.length} swap transactions`);
+      // If no valid swap transactions were created
+      if (swapTransactions.length === 0) {
+        return {
+          error: "Failed to create any valid swap transactions",
+          safeAddress,
+          swapTxs: [],
+          approvalTxs: []
+        };
+      }
       
       // Calculate total expected output
       const totalExpectedOutput = swapTransactions.reduce(
@@ -298,5 +324,5 @@ class TokenBridge {
 }
 
 // Export singleton instance
-const tokenBridge = new TokenBridge();
-export default tokenBridge;
+const tokenBridgeService = new TokenBridgeService();
+export default tokenBridgeService;

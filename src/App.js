@@ -4,8 +4,9 @@ import { SafeProvider, useSafeAppsSDK } from '@safe-global/safe-apps-react-sdk';
 import './App.css';
 import ApiKeyInput from './components/ApiKeyInput';
 import SwapForm from './components/SwapForm';
-import tokenBridge from './services/TokenBridge';
-import metadataService from './services/MetadataService';
+import tokenBridgeService from './services/TokenBridgeService';
+import tokenMetadataService from './services/TokenMetadataService';
+import config from './config';
 
 // SafeApp component that wraps the entire application
 export default function App() {
@@ -22,7 +23,7 @@ function BeraSwapApp() {
   const { sdk, safe } = useSafeAppsSDK();
 
   // State management
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('oogaboogaApiKey') || '');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(config.api.apiKeyStorageKey) || '');
   const [tokens, setTokens] = useState([]);
   const [totalValueUsd, setTotalValueUsd] = useState('');
   const [loadingTokens, setLoadingTokens] = useState(false);
@@ -35,18 +36,18 @@ function BeraSwapApp() {
   // Initialize services when API key is available
   useEffect(() => {
     if (apiKey) {
-      // Initialize tokenBridge with Safe connection info
-      tokenBridge.initialize(null, apiKey, null, sdk);
+      // Initialize tokenBridgeService with Safe connection info
+      tokenBridgeService.initialize(null, apiKey, null, sdk);
       console.log('Connected to Safe with address:', safe.safeAddress);
     }
   }, [apiKey, sdk, safe]);
 
   // Handle API key save
   const handleSaveApiKey = (newApiKey) => {
-    localStorage.setItem('oogaboogaApiKey', newApiKey);
+    localStorage.setItem(config.api.apiKeyStorageKey, newApiKey);
     setApiKey(newApiKey);
     // Re-initialize with new API key
-    tokenBridge.initialize(null, newApiKey, null, sdk);
+    tokenBridgeService.initialize(null, newApiKey, null, sdk);
   };
 
   // Close swap form
@@ -54,7 +55,7 @@ function BeraSwapApp() {
     setShowSwapForm(false);
   };
 
-  // Load token balances
+  // Load token balances from the Safe
   async function loadTokenBalances() {
     if (!apiKey || !safe.safeAddress) return;
 
@@ -64,35 +65,29 @@ function BeraSwapApp() {
     setShowSwapForm(false);
 
     try {
-      // Use the Safe address instead of connected wallet
+      // Use the Safe address
       const safeAddress = safe.safeAddress;
-      console.log(`Loading token balances for Safe at ${safeAddress}`);
 
       // Load token metadata first
       let tokensMap = {};
       
-      // Get token metadata from OogaBooga
-      const oogaboogaTokensResult = await metadataService.getOogaBoogaTokens();
+      // Get token metadata from primary source
+      const tokensResult = await tokenMetadataService.getTokenMetadata();
       
-      if (oogaboogaTokensResult.success && oogaboogaTokensResult.tokens && oogaboogaTokensResult.tokens.data) {
-        tokensMap = oogaboogaTokensResult.tokens.data;
-        console.log(`Using OogaBooga tokens (${Object.keys(tokensMap).length} tokens)`);
-      } else {
-        // Fallback to GitHub tokens
-        const githubTokensResult = await metadataService.getGitHubTokens();
-        
-        if (githubTokensResult.success && githubTokensResult.tokens && githubTokensResult.tokens.data) {
-          // Convert GitHub token array to map for easier lookup
-          const githubTokens = githubTokensResult.tokens.data;
-          githubTokens.forEach(token => {
+      if (tokensResult.success && tokensResult.tokens && tokensResult.tokens.data) {
+        // If tokens are in array format, convert to a map
+        if (Array.isArray(tokensResult.tokens.data)) {
+          tokensResult.tokens.data.forEach(token => {
             tokensMap[token.address.toLowerCase()] = token;
           });
-          console.log(`Using GitHub tokens (${Object.keys(tokensMap).length} tokens)`);
         } else {
-          setTokenError("Failed to load token data. Please update metadata.");
-          setLoadingTokens(false);
-          return;
+          // Otherwise use the map directly
+          tokensMap = tokensResult.tokens.data;
         }
+      } else {
+        setTokenError("Failed to load token data. Please try again later.");
+        setLoadingTokens(false);
+        return;
       }
 
       // Get token balances using Safe services
@@ -160,15 +155,12 @@ function BeraSwapApp() {
         }
       });
 
-      // Fetch prices for all tokens
+      // Fetch prices for all tokens in parallel
       const tokenAddresses = tokens.map(token => token.address);
       const priceFetchPromises = [...tokenAddresses].map(address => 
-        tokenBridge.getTokenPrice(address)
+        tokenBridgeService.getTokenPrice(address)
           .then(price => ({ address, price }))
-          .catch(error => {
-            console.error(`Error fetching price for ${address}:`, error);
-            return { address, price: null };
-          })
+          .catch(() => ({ address, price: null }))
       );
       
       // Wait for all price fetches to complete
@@ -186,6 +178,8 @@ function BeraSwapApp() {
         if (price !== null) {
           token.priceUsd = price;
           token.valueUsd = parseFloat(token.balance) * price;
+          
+          // Format the value for display
           token.formattedValueUsd = token.valueUsd.toLocaleString(undefined, {
             style: 'currency',
             currency: 'USD',
@@ -215,7 +209,14 @@ function BeraSwapApp() {
     }
   }
 
-  // Execute token swap
+  /**
+   * Execute token swap through Safe transactions
+   * 
+   * @param {Array} swapData - Token data to be swapped
+   * @param {number} totalValueUsd - Total value of tokens in USD
+   * @param {number} estimatedOutput - Estimated output amount
+   * @param {Object} bundleOptions - Additional options for the swap
+   */
   const handleSwap = async (swapData, totalValueUsd, estimatedOutput, bundleOptions = {}) => {
     if (!safe.safeAddress || swapData.length === 0) return;
     
@@ -226,20 +227,21 @@ function BeraSwapApp() {
     });
     
     try {
-      console.log(`Creating swap bundle for ${swapData.length} tokens`);
-      console.log("Swap data:", JSON.stringify(swapData, null, 2));
-      console.log("Total value:", totalValueUsd);
-      console.log("Target token:", bundleOptions.targetToken?.symbol || "BERA");
-      console.log("Estimated output:", estimatedOutput);
+      // Add slippage from config if not provided
+      if (!bundleOptions.slippage) {
+        bundleOptions.slippage = config.ui.defaultSlippage;
+      }
       
-      // Create a swap bundle using the TokenBridge
-      const bundle = await tokenBridge.createSwapBundle(safe.safeAddress, swapData, bundleOptions);
+      // Create a swap bundle using the TokenBridgeService
+      const bundle = await tokenBridgeService.createSwapBundle(
+        safe.safeAddress, 
+        swapData, 
+        bundleOptions
+      );
       
       if (bundle.error) {
         throw new Error(`Failed to create swap bundle: ${bundle.error}`);
       }
-      
-      console.log("Created swap bundle:", JSON.stringify(bundle, null, 2));
       
       // Convert the bundle transactions to Safe transactions
       const safeTxs = [];
@@ -264,16 +266,12 @@ function BeraSwapApp() {
         });
       });
       
-      console.log(`Submitting ${safeTxs.length} transactions to Safe`);
-      
       // Submit the transactions to Safe
       const { safeTxHash } = await sdk.txs.send({
         txs: safeTxs
       });
       
-      console.log(`Safe transaction created with hash: ${safeTxHash}`);
-      
-      // Update swap status
+      // Update swap status with success
       setSwapStatus({
         loading: false,
         success: true,
@@ -288,6 +286,7 @@ function BeraSwapApp() {
     } catch (err) {
       console.error("Swap error:", err);
       
+      // Update status with error
       setSwapStatus({
         loading: false,
         success: false,

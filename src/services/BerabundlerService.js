@@ -1,9 +1,10 @@
 /**
- * BerabundlerService.js - Service for interacting with swap bundling
+ * @file BerabundlerService.js
+ * @description Service for interacting with the BeraBundle SwapBundler contract
  * 
- * This is a minimal version that only includes reference to the contract format
- * for documentation purposes. In Safe App mode, we don't actually execute the bundle
- * but just prepare the transactions for the Safe.
+ * This is a minimal version that only includes the contract format reference
+ * for documentation purposes. In Safe App mode, we don't directly execute the bundle
+ * but prepare transactions for the Safe wallet interface.
  */
 
 import { ethers } from 'ethers';
@@ -73,19 +74,23 @@ const TYPE_SWAP = 2;
 
 /**
  * Service for interacting with the Berabundle_SwapBundler contract
- * In Safe App mode, this service is mostly for documentation
+ * In Safe App mode, this service is mostly for reference since transactions
+ * are prepared and executed through the Safe interface.
  */
 class BerabundlerService {
   constructor() {
     // Contract address on Berachain
     this.contractAddress = '0xF9b3593C58cd1A2e3D1Fc8ff44Da6421B5828c18';
     this.provider = null;
+    this.signer = null;
     this.contract = null;
   }
 
   /**
-   * Initialize the service with a provider
+   * Initialize the service with a provider and signer
    * @param {ethers.providers.Web3Provider} provider - Ethers provider
+   * @param {ethers.Signer} signer - Ethers signer
+   * @returns {boolean} Whether initialization was successful
    */
   initialize(provider, signer) {
     this.provider = provider;
@@ -100,9 +105,18 @@ class BerabundlerService {
 
   /**
    * Check if the service is initialized
+   * @returns {boolean} True if service is initialized with contract and signer
    */
   isInitialized() {
     return Boolean(this.contract && this.signer);
+  }
+  
+  /**
+   * Get the contract address
+   * @returns {string} The contract address
+   */
+  getContractAddress() {
+    return this.contractAddress;
   }
 }
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import './SwapForm.css';
-import tokenBridge from '../services/TokenBridge';
-import metadataService from '../services/MetadataService';
+import tokenBridgeService from '../services/TokenBridgeService';
+import tokenMetadataService from '../services/TokenMetadataService';
+import config from '../config';
 
 /**
  * Component for creating token swap transactions
@@ -47,29 +48,40 @@ function SwapForm({ selectedTokens, beraToken, onClose, onSwap, safeMode = false
     }
   }, [selectedTokens]);
   
-  // Load available tokens from OogaBooga API
+  // Load available tokens from metadata service
   useEffect(() => {
     async function loadAvailableTokens() {
       setIsLoadingTokens(true);
       try {
-        const result = await metadataService.getOogaBoogaTokens();
+        // Get tokens with fallback
+        const result = await tokenMetadataService.getTokenMetadata();
+        
         if (result.success && result.tokens) {
-          // Convert token map to array
-          const tokenArray = Object.values(result.tokens.data);
+          let tokenArray = [];
+          
+          // Convert token data to array if it's an object
+          if (result.tokens.data && typeof result.tokens.data === 'object') {
+            if (Array.isArray(result.tokens.data)) {
+              tokenArray = result.tokens.data;
+            } else {
+              tokenArray = Object.values(result.tokens.data);
+            }
+          }
           
           // Sort tokens by symbol
           const sortedTokens = [...tokenArray].sort((a, b) => a.symbol.localeCompare(b.symbol));
           
           setAvailableTokens(sortedTokens);
           
-          // Pre-select BERA as target token by default
-          const beraToken = sortedTokens.find(token => 
-            token.symbol === 'BERA' || 
-            token.address === '0x0000000000000000000000000000000000000000'
+          // Pre-select native token as target token by default
+          const nativeToken = config.networks.currentNetwork.nativeToken;
+          const defaultToken = sortedTokens.find(token => 
+            token.symbol === nativeToken.symbol || 
+            token.address.toLowerCase() === nativeToken.address.toLowerCase()
           );
           
-          if (beraToken) {
-            setTargetToken(beraToken);
+          if (defaultToken) {
+            setTargetToken(defaultToken);
           }
         } else {
           console.error("Failed to load tokens:", result.error);
@@ -157,16 +169,18 @@ function SwapForm({ selectedTokens, beraToken, onClose, onSwap, safeMode = false
     handleAmountChange(token, amount);
   };
 
-  // Get token price for the selected target token
+  /**
+   * Get token price for the selected target token
+   * @param {Object} token - The token to get price for
+   * @returns {Promise<number|null>} The token price or null if not available
+   */
   const getTargetTokenPrice = async (token) => {
     if (!token || !token.address) return null;
     
     try {
-      const price = await tokenBridge.getTokenPrice(token.address);
-      console.log(`[DEBUG] Price for ${token.symbol}: ${price}`);
-      return price;
+      return await tokenBridgeService.getTokenPrice(token.address);
     } catch (error) {
-      console.error(`[DEBUG] Error getting price for ${token.symbol}:`, error);
+      console.error(`Error getting price for ${token.symbol}:`, error);
       return null;
     }
   };
