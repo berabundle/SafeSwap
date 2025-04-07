@@ -2,10 +2,13 @@
   "name": "berabundle-safe-app",
   "version": "1.0.0",
   "description": "BeraBundle Safe App for token swaps on Berachain",
+  "homepage": "https://berabundle.github.io/SafeSwap",
   "main": "index.js",
   "scripts": {
     "start": "cd reactui && npm start",
-    "build": "cd reactui && npm run build"
+    "build": "cd reactui && npm run build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d reactui/build"
   },
   "keywords": [
     "berachain",
@@ -19,5 +22,8 @@
   "dependencies": {
     "axios": "^1.6.7",
     "ethers": "^5.7.2"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }
