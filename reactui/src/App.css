@@ -1,0 +1,272 @@
+.App {
+  text-align: center;
+  background-color: #121212;
+  min-height: 100vh;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.App-header {
+  background-color: #1e1e1e;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.header-logo h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #4CAF50;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.safe-address {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #4CAF50;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.main-content {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex: 1;
+  width: 100%;
+}
+
+.content-wrapper {
+  margin-top: 20px;
+}
+
+.token-list-container {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.refresh-button {
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.refresh-button:hover {
+  background-color: #444;
+}
+
+.refresh-button.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.token-card {
+  background-color: #252525;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.token-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.token-card.selected {
+  border: 2px solid #4CAF50;
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.token-card .token-symbol {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.token-card .token-balance {
+  font-size: 1rem;
+  color: #bbb;
+  margin-bottom: 8px;
+}
+
+.token-card .token-value {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.swap-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-top: 24px;
+  cursor: pointer;
+}
+
+.swap-button:hover {
+  background-color: #45a049;
+}
+
+.status-messages {
+  margin-top: 24px;
+}
+
+.status {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.status.loading {
+  background-color: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  color: #2196F3;
+}
+
+.status.success {
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #4CAF50;
+}
+
+.status.error {
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  color: #F44336;
+}
+
+.swap-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.api-key-container {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.total-value {
+  background-color: #252525;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: right;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+
+.error-message {
+  color: #ff6b6b;
+  margin: 12px 0;
+  font-size: 0.9rem;
+}
+
+/* API Key Input Styles */
+.api-key-input {
+  width: 100%;
+}
+
+.api-key-input h3 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  color: #fff;
+}
+
+.input-group {
+  display: flex;
+  margin: 15px 0;
+  width: 100%;
+}
+
+.api-key-field {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #444;
+  border-radius: 4px 0 0 4px;
+  background-color: #252525;
+  color: white;
+}
+
+.toggle-visibility {
+  border-radius: 0 4px 4px 0;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #444;
+  border-left: none;
+  padding: 0 10px;
+}
+
+.save-button {
+  width: 100%;
+  margin-top: 10px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.save-button:disabled {
+  background-color: #2c642f;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.key-status {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #4CAF50;
+  border-radius: 4px;
+}

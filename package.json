@@ -1,0 +1,23 @@
+{
+  "name": "berabundle-safe-app",
+  "version": "1.0.0",
+  "description": "BeraBundle Safe App for token swaps on Berachain",
+  "main": "index.js",
+  "scripts": {
+    "start": "cd reactui && npm start",
+    "build": "cd reactui && npm run build"
+  },
+  "keywords": [
+    "berachain",
+    "safe",
+    "dapp",
+    "ethereum",
+    "defi"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.7",
+    "ethers": "^5.7.2"
+  }
+}

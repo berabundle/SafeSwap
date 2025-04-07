@@ -1,0 +1,433 @@
+.swap-form {
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 550px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.swap-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #333;
+  background-color: #252525;
+}
+
+.swap-form-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #fff;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+
+.close-button:hover {
+  color: #fff;
+}
+
+.swap-form-content {
+  padding: 20px;
+}
+
+.swap-description {
+  color: #aaa;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.swap-tokens-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.swap-token-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background-color: #252525;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.token-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.token-symbol {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.token-balance {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.token-input-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.token-amount-input {
+  width: 100%;
+  background-color: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 1rem;
+  padding: 8px 12px;
+  text-align: right;
+}
+
+.token-amount-input.valid {
+  border-color: #4CAF50;
+}
+
+.token-amount-input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.token-percentage-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.token-percentage-buttons button {
+  background-color: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.token-percentage-buttons button:hover {
+  background-color: #444;
+  color: #fff;
+}
+
+.token-value {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.error-message {
+  color: #ff6b6b;
+  margin: 12px 0;
+  font-size: 0.9rem;
+}
+
+.swap-summary {
+  background-color: #252525;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.summary-row:last-child {
+  margin-bottom: 0;
+}
+
+.summary-label {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.summary-value {
+  color: #fff;
+  font-weight: bold;
+}
+
+.target-token-select {
+  width: 140px;
+}
+
+.token-select {
+  width: 100%;
+  background-color: #333;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.9rem;
+  padding: 6px 10px;
+}
+
+.token-select:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.swap-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.swap-button {
+  flex: 1;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.swap-button:hover {
+  background-color: #45a049;
+}
+
+.swap-button:disabled {
+  background-color: #3e8e41;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background-color: #444;
+  color: #ddd;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-button:hover {
+  background-color: #555;
+}
+
+/* App-wide styles */
+.App {
+  text-align: center;
+  background-color: #121212;
+  min-height: 100vh;
+  color: white;
+}
+
+.App-header {
+  background-color: #1e1e1e;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.header-logo h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #4CAF50;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.safe-address {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #4CAF50;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.main-content {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.content-wrapper {
+  margin-top: 20px;
+}
+
+.token-list-container {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.refresh-button {
+  background-color: #333;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.refresh-button:hover {
+  background-color: #444;
+}
+
+.refresh-button.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.token-card {
+  background-color: #252525;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.token-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.token-card.selected {
+  border: 2px solid #4CAF50;
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.token-card .token-symbol {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.token-card .token-balance {
+  font-size: 1rem;
+  color: #bbb;
+  margin-bottom: 8px;
+}
+
+.token-card .token-value {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.swap-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-top: 24px;
+  cursor: pointer;
+}
+
+.swap-button:hover {
+  background-color: #45a049;
+}
+
+.status-messages {
+  margin-top: 24px;
+}
+
+.status {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.status.loading {
+  background-color: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  color: #2196F3;
+}
+
+.status.success {
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #4CAF50;
+}
+
+.status.error {
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  color: #F44336;
+}
+
+.swap-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.api-key-container {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.total-value {
+  background-color: #252525;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: right;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
