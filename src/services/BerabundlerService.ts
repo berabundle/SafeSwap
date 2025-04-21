@@ -77,11 +77,13 @@ class BerabundlerService {
   private contractAddress: string;
   private sdk: SafeAppsSdk | null;
   private bundlerApis: Record<number, string>;
+  private apiKey: string | null;
 
   constructor() {
     // Different contract addresses for different chains
     this.contractAddress = '0xF9b3593C58cd1A2e3D1Fc8ff44Da6421B5828c18'; // Berachain default
     this.sdk = null;
+    this.apiKey = null;
     
     // API endpoints for different chains
     this.bundlerApis = {
@@ -92,8 +94,13 @@ class BerabundlerService {
   /**
    * Initialize the service with a Safe Apps SDK
    */
-  initialize(sdk: SafeAppsSdk, chainId: number): boolean {
+  initialize(sdk: SafeAppsSdk, chainId: number, apiKey?: string): boolean {
     this.sdk = sdk;
+    
+    // Set API key if provided
+    if (apiKey) {
+      this.apiKey = apiKey;
+    }
     
     // Potentially switch contract address based on chain
     if (chainId !== 80085) {
@@ -101,6 +108,13 @@ class BerabundlerService {
     }
     
     return Boolean(this.sdk);
+  }
+  
+  /**
+   * Set the API key
+   */
+  setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
   }
 
   /**
@@ -213,15 +227,19 @@ class BerabundlerService {
           // Skip tokens with zero amount
           if (parseFloat(amount) <= 0) return null;
           
-          // Prepare mock API response (in a real application this would call the OogaBooga API)
-          // This is a simplified example
-          const mockApiResponse = await this.getMockSwapQuote(token, amount, targetToken);
-          
-          return {
-            ...mockApiResponse,
-            token,
-            amount
-          };
+          try {
+            // Get real swap quote from OogaBooga API
+            const apiResponse = await this.getSwapQuote(token, amount, targetToken);
+            
+            return {
+              ...apiResponse,
+              token,
+              amount
+            };
+          } catch (error) {
+            console.error(`Failed to get swap quote for ${token.symbol}:`, error);
+            throw error;
+          }
         })
       );
 
@@ -292,46 +310,66 @@ class BerabundlerService {
   }
 
   /**
-   * Get a mock swap quote (in a real app, this would call the OogaBooga API)
+   * Get a swap quote from the OogaBooga API
    */
-  private async getMockSwapQuote(
+  private async getSwapQuote(
     inputToken: Token, 
     amount: string, 
     outputToken: Token
   ): Promise<any> {
-    // This is a mock implementation for demonstration purposes
-    // In a real app, you would call the actual OogaBooga API
+    if (!this.apiKey) {
+      throw new Error('API key not set. Please set your OogaBooga API key.');
+    }
 
-    // Mock router address
-    const routerAddress = "0x9e5AAC1Ba1a2e6aEd6b32689DFcF62A509Ca96f3";
-    
-    // Get some realistic-looking data for the quote
-    const isNative = inputToken.isNative || inputToken.symbol === 'BERA';
-    const amountBN = ethers.parseUnits(amount, inputToken.decimals);
-    
-    // Calculate mock output (assumes prices are available)
-    const inputValueUsd = inputToken.priceUsd 
-      ? parseFloat(amount) * inputToken.priceUsd 
-      : parseFloat(amount);
+    try {
+      // Prepare API request
+      const chainId = 80085; // Berachain testnet
+      const apiEndpoint = this.bundlerApis[chainId];
       
-    const outputAmount = outputToken.priceUsd 
-      ? inputValueUsd / outputToken.priceUsd 
-      : parseFloat(amount) * 0.95; // Fallback with 5% slippage
-    
-    // Format output amount with appropriate decimals
-    const minOutputAmount = (outputAmount * 0.95).toString(); // 5% slippage
-    
-    // Mock swap API response format
-    return {
-      to: routerAddress,
-      data: "0x", // This would be actual swap calldata from API
-      value: isNative ? amountBN.toString() : "0",
-      swapParams: {
-        outputToken: outputToken.address,
-        minOutput: minOutputAmount,
-        router: routerAddress
+      if (!apiEndpoint) {
+        throw new Error(`No API endpoint for chain ID ${chainId}`);
       }
-    };
+      
+      const isNative = inputToken.isNative || inputToken.symbol === 'BERA';
+      const amountBN = ethers.parseUnits(amount, inputToken.decimals);
+      
+      // Make the API request
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          chainId,
+          tokenIn: isNative ? 'native' : inputToken.address,
+          tokenOut: outputToken.address,
+          amount: amountBN.toString(),
+          slippage: 0.5 // 0.5% slippage
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API request failed: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      
+      return {
+        to: data.routerAddress,
+        data: data.calldata,
+        value: isNative ? amountBN.toString() : "0",
+        swapParams: {
+          outputToken: outputToken.address,
+          minOutput: data.minOutputAmount,
+          router: data.routerAddress
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching swap quote:', error);
+      throw error;
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Container, Box, Typography, CircularProgress } from '@mui/material';
@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [selectedTokens, setSelectedTokens] = useState<TokenAmount[]>([]);
   const [targetToken, setTargetToken] = useState<Token | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
   
   // Create provider for blockchain interaction
   const provider = useMemo(() => {
@@ -37,47 +38,49 @@ const App: React.FC = () => {
     return new ethers.BrowserProvider(safeProvider);
   }, [sdk, safe]);
 
-  useEffect(() => {
-    const loadTokens = async () => {
-      try {
-        setLoading(true);
-        // 1. Fetch token list
-        const tokenList = await fetchTokenList();
-        
-        // 2. Filter tokens for the current chain
-        const filteredTokens = tokenList.tokens.filter(
-          token => token.chainId === safe.chainId
-        );
-        
-        // 3. Fetch balances for these tokens
-        const tokensWithBalances = await fetchTokenBalances(
-          filteredTokens, 
-          safe.safeAddress, 
-          provider
-        );
-        
-        // 4. Fetch prices for tokens
-        const tokensWithPrices = await fetchTokenPrices(tokensWithBalances);
-        
-        setTokens(tokensWithPrices);
-        
-        // Set BERA as default target token
-        const beraToken = tokensWithPrices.find(t => t.symbol === 'BERA');
-        if (beraToken) {
-          setTargetToken(beraToken);
-        }
-        
-        setError(null);
-      } catch (err) {
-        setError('Failed to load tokens. Please refresh the page.');
-        console.error(err);
-      } finally {
-        setLoading(false);
+  // Update tokens when API key changes
+  const loadTokens = useCallback(async () => {
+    try {
+      setLoading(true);
+      // 1. Fetch token list with API key
+      const tokenList = await fetchTokenList(apiKey);
+      
+      // 2. Filter tokens for the current chain
+      const filteredTokens = tokenList.tokens.filter(
+        token => token.chainId === safe.chainId
+      );
+      
+      // 3. Fetch balances for these tokens
+      const tokensWithBalances = await fetchTokenBalances(
+        filteredTokens, 
+        safe.safeAddress, 
+        provider
+      );
+      
+      // 4. Fetch prices for tokens with API key
+      const tokensWithPrices = await fetchTokenPrices(tokensWithBalances, apiKey);
+      
+      setTokens(tokensWithPrices);
+      
+      // Set BERA as default target token
+      const beraToken = tokensWithPrices.find(t => t.symbol === 'BERA');
+      if (beraToken) {
+        setTargetToken(beraToken);
       }
-    };
+      
+      setError(null);
+    } catch (err) {
+      setError('Failed to load tokens. Please refresh the page.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [safe.chainId, safe.safeAddress, provider, apiKey]);
 
+  // Load tokens when dependencies change
+  useEffect(() => {
     loadTokens();
-  }, [safe.chainId, safe.safeAddress, provider]);
+  }, [loadTokens]);
 
   const handleTokenSelection = (token: Token, amount: string, isMax: boolean) => {
     setSelectedTokens(prev => {
@@ -106,17 +109,30 @@ const App: React.FC = () => {
       return;
     }
 
+    if (!apiKey) {
+      setError('Please enter your OogaBooga API key to perform swaps');
+      return;
+    }
+
     try {
-      // We'll implement the actual swap logic in the next step
-      console.log('Swap bundle:', swapBundle);
+      // We'll reload tokens after successful swap to update balances
+      setLoading(true);
       
-      // For now, just show a success message
+      // The actual swap logic is handled in the SwapForm component
+      // and the Safe SDK will prompt the user to confirm the transaction
+      console.log('Swap bundle executed:', swapBundle);
+      
       // Reset selected tokens after successful swap
       setSelectedTokens([]);
       setError(null);
-    } catch (err) {
+      
+      // Reload tokens to update balances
+      await loadTokens();
+    } catch (err: any) {
       console.error('Swap failed:', err);
-      setError('Failed to execute swap');
+      setError(`Failed to execute swap: ${err.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -154,11 +170,36 @@ const App: React.FC = () => {
             selectedTokens={selectedTokens}
           />
           
+          <Box mb={3}>
+            <Typography variant="subtitle1" gutterBottom>
+              OogaBooga API Key
+            </Typography>
+            <input
+              type="password"
+              value={apiKey || ''}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Enter your API key"
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '4px',
+                border: '1px solid #444',
+                background: 'transparent',
+                color: 'white',
+                marginBottom: '10px'
+              }}
+            />
+            <Typography variant="caption" color="textSecondary">
+              Your API key is required for fetching token prices and executing swaps. Keys are not stored.
+            </Typography>
+          </Box>
+          
           <SwapForm
             selectedTokens={selectedTokens}
             onRemoveToken={handleRemoveToken}
             onSwap={handleSwap}
             availableTokens={tokens}
+            apiKey={apiKey}
           />
         </Box>
       </Container>

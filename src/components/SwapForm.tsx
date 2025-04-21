@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -36,13 +36,15 @@ interface SwapFormProps {
   availableTokens: Token[];
   onRemoveToken: (tokenAddress: string) => void;
   onSwap: (swapBundle: SwapBundle) => void;
+  apiKey: string | null;
 }
 
 const SwapForm: React.FC<SwapFormProps> = ({ 
   selectedTokens, 
   availableTokens, 
   onRemoveToken, 
-  onSwap 
+  onSwap,
+  apiKey
 }) => {
   const { sdk, safe } = useSafeAppsSDK();
   const [targetToken, setTargetToken] = useState<Token | null>(null);
@@ -69,9 +71,9 @@ const SwapForm: React.FC<SwapFormProps> = ({
   // Initialize berabundler service
   useEffect(() => {
     if (sdk && safe) {
-      berabundlerService.initialize(sdk, safe.chainId);
+      berabundlerService.initialize(sdk, safe.chainId, apiKey || undefined);
     }
-  }, [sdk, safe]);
+  }, [sdk, safe, apiKey]);
 
   // Validate input tokens and generate swap quote
   const generateSwapQuote = async () => {
@@ -192,6 +194,7 @@ const SwapForm: React.FC<SwapFormProps> = ({
       <Typography variant="h6" gutterBottom>
         Bundle Swap
       </Typography>
+      
 
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
         <Typography variant="subtitle2" gutterBottom>

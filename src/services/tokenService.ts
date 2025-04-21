@@ -11,35 +11,74 @@ const erc20Abi = [
 ];
 
 /**
- * Fetch token list from a token list provider
- * For Berachain, we'll use a basic token list
+ * Fetch token list from the OogaBooga API
+ * For Berachain, uses the /v1/tokens endpoint
  */
-export const fetchTokenList = async (): Promise<{ tokens: Token[] }> => {
+export const fetchTokenList = async (apiKey: string | null = null): Promise<{ tokens: Token[] }> => {
   try {
-    // Note: For a production app, you'd want to fetch this from a token list API
-    // This is a simplified version for Berachain
+    // If no API key is provided, return a minimal default list
+    if (!apiKey) {
+      console.warn('No API key provided for token list, using default tokens');
+      const defaultTokens: Token[] = [
+        {
+          name: 'Bera',
+          symbol: 'BERA',
+          address: '0x0000000000000000000000000000000000000000',
+          decimals: 18,
+          chainId: 80085, // Berachain testnet
+          logoURI: 'https://assets.coingecko.com/coins/images/26409/small/berachain-logo.png',
+          isNative: true
+        },
+        {
+          name: 'Honey',
+          symbol: 'HONEY',
+          address: '0x7EeCA4205fF31f947EdBd49195a7A88E6A91161B',
+          decimals: 18,
+          chainId: 80085,
+          logoURI: 'https://assets.coingecko.com/coins/images/28193/small/honey-icon.png'
+        }
+      ];
+      return { tokens: defaultTokens };
+    }
     
-    // Example of a basic token list for Berachain (testnet)
-    const tokens: Token[] = [
-      {
+    // Fetch tokens from OogaBooga API
+    const response = await fetch('https://api.oogabooga.com/v1/tokens', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${await response.text()}`);
+    }
+    
+    const data = await response.json();
+    
+    // Transform API response to our Token format
+    const tokens: Token[] = data.map((token: any) => ({
+      name: token.name,
+      symbol: token.symbol,
+      address: token.address,
+      decimals: token.decimals,
+      chainId: 80085, // Berachain testnet
+      logoURI: token.tokenURI || '',
+      isNative: token.address === '0x0000000000000000000000000000000000000000'
+    }));
+    
+    // Ensure native BERA token is included
+    if (!tokens.find(t => t.isNative)) {
+      tokens.unshift({
         name: 'Bera',
         symbol: 'BERA',
         address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-        chainId: 80085, // Berachain testnet
+        chainId: 80085,
         logoURI: 'https://assets.coingecko.com/coins/images/26409/small/berachain-logo.png',
         isNative: true
-      },
-      {
-        name: 'Honey',
-        symbol: 'HONEY',
-        address: '0x7EeCA4205fF31f947EdBd49195a7A88E6A91161B',
-        decimals: 18,
-        chainId: 80085,
-        logoURI: 'https://assets.coingecko.com/coins/images/28193/small/honey-icon.png'
-      },
-      // Add more Berachain tokens as needed
-    ];
+      });
+    }
 
     return { tokens };
   } catch (error) {
@@ -94,22 +133,59 @@ export const fetchTokenBalances = async (
 };
 
 /**
- * Custom hook to fetch token prices from an API
+ * Fetch token prices from the OogaBooga API
  */
 export const fetchTokenPrices = async (
-  tokens: Token[]
+  tokens: Token[],
+  apiKey: string | null = null
 ): Promise<Token[]> => {
   try {
-    // This would normally fetch prices from an API
-    // For now, we'll use placeholder prices
-    const tokensWithPrices = tokens.map(token => ({
-      ...token,
-      priceUsd: token.symbol === 'BERA' ? 10.5 : token.symbol === 'HONEY' ? 0.15 : 0
-    }));
+    // If no API key is provided, return tokens with placeholder prices
+    if (!apiKey) {
+      console.warn('No API key provided for price fetch, using placeholder prices');
+      return tokens.map(token => ({
+        ...token,
+        priceUsd: token.symbol === 'BERA' ? 10.5 : token.symbol === 'HONEY' ? 0.15 : 0
+      }));
+    }
+    
+    // Fetch prices from OogaBooga API
+    const response = await fetch('https://api.oogabooga.com/v1/prices', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${await response.text()}`);
+    }
+    
+    const priceData = await response.json();
+    
+    // Create a map of token addresses to prices
+    const priceMap = new Map<string, number>();
+    priceData.forEach((item: { address: string; price: number }) => {
+      priceMap.set(item.address.toLowerCase(), item.price);
+    });
+    
+    // Apply prices to tokens
+    const tokensWithPrices = tokens.map(token => {
+      const address = token.isNative ? '0x0000000000000000000000000000000000000000' : token.address.toLowerCase();
+      return {
+        ...token,
+        priceUsd: priceMap.has(address) ? priceMap.get(address) : token.priceUsd || 0
+      };
+    });
 
     return tokensWithPrices;
   } catch (error) {
     console.error('Error fetching token prices:', error);
-    return tokens; // Return tokens without prices on error
+    // Fall back to placeholder prices on error
+    return tokens.map(token => ({
+      ...token,
+      priceUsd: token.priceUsd || (token.symbol === 'BERA' ? 10.5 : token.symbol === 'HONEY' ? 0.15 : 0)
+    }));
   }
 };
