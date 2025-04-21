@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { SafeAppProvider } from '@safe-global/safe-apps-provider';
-import { SafeThemeProvider } from '@safe-global/safe-apps-react-sdk';
+import { SafeProvider } from '@safe-global/safe-apps-react-sdk';
 import App from './App';
 
 const root = ReactDOM.createRoot(
@@ -10,8 +10,8 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <SafeThemeProvider>
+    <SafeProvider>
       <App />
-    </SafeThemeProvider>
+    </SafeProvider>
   </React.StrictMode>
 );
