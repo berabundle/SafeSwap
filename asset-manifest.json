@@ -1,0 +1,11 @@
+{
+  "files": {
+    "main.js": "/SafeSwap/static/js/main.d5777ac5.js",
+    "vendor.js": "/SafeSwap/static/js/vendor.018a0fd4.js",
+    "index.html": "/SafeSwap/index.html"
+  },
+  "entrypoints": [
+    "static/js/vendor.018a0fd4.js",
+    "static/js/main.d5777ac5.js"
+  ]
+}
