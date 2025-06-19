@@ -99,11 +99,14 @@ The API returns standard HTTP status codes:
 - Free tier: 100 requests per minute
 - Premium tier: 1000 requests per minute
 
-## Usage in BerabundlerService
+## Usage in SafeSwap
 
 In the SafeSwap application, the OogaBooga API is used for:
-1. Fetching token prices and details
-2. Getting swap quotes for bundled swaps
-3. Generating transaction data for the Berabundle_SwapBundler contract
+1. Fetching available tokens and their details
+2. Getting current USD prices for tokens
+3. Generating swap quotes and router calldata
+4. All API calls are made in parallel for speed
+
+The app uses Safe's native transaction bundling to execute multiple swaps atomically.
 
 API keys should be stored securely and not committed to the repository.

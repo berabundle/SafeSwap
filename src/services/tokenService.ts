@@ -1,8 +1,15 @@
+/**
+ * Token Service - Handles token data fetching from OogaBooga API
+ * 
+ * This service manages:
+ * - Fetching available tokens from OogaBooga API
+ * - Querying on-chain token balances
+ * - Fetching current token prices in USD
+ */
+
 import { ethers } from 'ethers';
-import { useSafeAppsSDK } from '@safe-global/safe-apps-react-sdk';
 import { Token } from '../types';
 
-// Standard ERC20 ABI for balanceOf function
 const erc20Abi = [
   'function balanceOf(address owner) view returns (uint256)',
   'function decimals() view returns (uint8)',
@@ -11,37 +18,16 @@ const erc20Abi = [
 ];
 
 /**
- * Fetch token list from the OogaBooga API
- * For Berachain, uses the /v1/tokens endpoint
+ * Fetches list of available tokens from OogaBooga API
+ * @param apiKey - OogaBooga API key for authentication
+ * @returns Promise containing array of Token objects
  */
 export const fetchTokenList = async (apiKey: string | null = null): Promise<{ tokens: Token[] }> => {
   try {
-    // If no API key is provided, return a minimal default list
     if (!apiKey) {
-      console.warn('No API key provided for token list, using default tokens');
-      const defaultTokens: Token[] = [
-        {
-          name: 'Bera',
-          symbol: 'BERA',
-          address: '0x0000000000000000000000000000000000000000',
-          decimals: 18,
-          chainId: 80085, // Berachain testnet
-          logoURI: 'https://assets.coingecko.com/coins/images/26409/small/berachain-logo.png',
-          isNative: true
-        },
-        {
-          name: 'Honey',
-          symbol: 'HONEY',
-          address: '0x7EeCA4205fF31f947EdBd49195a7A88E6A91161B',
-          decimals: 18,
-          chainId: 80085,
-          logoURI: 'https://assets.coingecko.com/coins/images/28193/small/honey-icon.png'
-        }
-      ];
-      return { tokens: defaultTokens };
+      throw new Error('API key required for token list');
     }
     
-    // Fetch tokens from OogaBooga API
     const response = await fetch('https://api.oogabooga.com/v1/tokens', {
       method: 'GET',
       headers: {
@@ -56,7 +42,7 @@ export const fetchTokenList = async (apiKey: string | null = null): Promise<{ to
     
     const data = await response.json();
     
-    // Transform API response to our Token format
+    // Transform API response to Token format
     const tokens: Token[] = data.map((token: any) => ({
       name: token.name,
       symbol: token.symbol,
@@ -75,7 +61,7 @@ export const fetchTokenList = async (apiKey: string | null = null): Promise<{ to
         address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
         chainId: 80085,
-        logoURI: 'https://assets.coingecko.com/coins/images/26409/small/berachain-logo.png',
+        logoURI: '',
         isNative: true
       });
     }
@@ -88,7 +74,11 @@ export const fetchTokenList = async (apiKey: string | null = null): Promise<{ to
 };
 
 /**
- * Fetch token balances for a given safe address
+ * Queries on-chain balances for given tokens
+ * @param tokens - Array of tokens to check balances for
+ * @param safeAddress - Address of the Safe to check balances for
+ * @param provider - Ethers provider for blockchain queries
+ * @returns Promise containing tokens with balance property added
  */
 export const fetchTokenBalances = async (
   tokens: Token[],
@@ -102,10 +92,10 @@ export const fetchTokenBalances = async (
           let balance = '0';
 
           if (token.isNative) {
-            // For native token (BERA)
+            // Query native BERA balance
             balance = ethers.formatEther(await provider.getBalance(safeAddress));
           } else {
-            // For ERC20 tokens
+            // Query ERC20 token balance
             const tokenContract = new ethers.Contract(token.address, erc20Abi, provider);
             const rawBalance = await tokenContract.balanceOf(safeAddress);
             balance = ethers.formatUnits(rawBalance, token.decimals);
@@ -133,23 +123,21 @@ export const fetchTokenBalances = async (
 };
 
 /**
- * Fetch token prices from the OogaBooga API
+ * Fetches current USD prices for tokens from OogaBooga API
+ * @param tokens - Array of tokens to fetch prices for
+ * @param apiKey - OogaBooga API key for authentication
+ * @returns Promise containing tokens with priceUsd property added
  */
 export const fetchTokenPrices = async (
   tokens: Token[],
   apiKey: string | null = null
 ): Promise<Token[]> => {
   try {
-    // If no API key is provided, return tokens with placeholder prices
     if (!apiKey) {
-      console.warn('No API key provided for price fetch, using placeholder prices');
-      return tokens.map(token => ({
-        ...token,
-        priceUsd: token.symbol === 'BERA' ? 10.5 : token.symbol === 'HONEY' ? 0.15 : 0
-      }));
+      // Return tokens without prices if no API key
+      return tokens;
     }
     
-    // Fetch prices from OogaBooga API
     const response = await fetch('https://api.oogabooga.com/v1/prices', {
       method: 'GET',
       headers: {
@@ -164,28 +152,24 @@ export const fetchTokenPrices = async (
     
     const priceData = await response.json();
     
-    // Create a map of token addresses to prices
+    // Map prices to tokens
     const priceMap = new Map<string, number>();
     priceData.forEach((item: { address: string; price: number }) => {
       priceMap.set(item.address.toLowerCase(), item.price);
     });
     
-    // Apply prices to tokens
     const tokensWithPrices = tokens.map(token => {
       const address = token.isNative ? '0x0000000000000000000000000000000000000000' : token.address.toLowerCase();
       return {
         ...token,
-        priceUsd: priceMap.has(address) ? priceMap.get(address) : token.priceUsd || 0
+        priceUsd: priceMap.get(address) || 0
       };
     });
 
     return tokensWithPrices;
   } catch (error) {
     console.error('Error fetching token prices:', error);
-    // Fall back to placeholder prices on error
-    return tokens.map(token => ({
-      ...token,
-      priceUsd: token.priceUsd || (token.symbol === 'BERA' ? 10.5 : token.symbol === 'HONEY' ? 0.15 : 0)
-    }));
+    // Return tokens without prices on error
+    return tokens;
   }
 };

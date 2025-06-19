@@ -1,3 +1,14 @@
+/**
+ * TokenSelector Component - Allows users to select tokens and amounts for swapping
+ * 
+ * Features:
+ * - Search tokens by name or symbol
+ * - Toggle to show/hide zero balance tokens
+ * - Inline amount input with MAX button
+ * - Real-time USD value calculation
+ * - Disabled state for already selected tokens
+ */
+
 import React, { useState, useMemo } from 'react';
 import { 
   Paper, 
@@ -9,17 +20,13 @@ import {
   Avatar, 
   Typography, 
   Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
   InputAdornment,
-  IconButton,
-  Divider,
   FormControlLabel,
-  Switch
+  Switch,
+  Grid,
+  Button
 } from '@mui/material';
-import { Search as SearchIcon, Close as CloseIcon } from '@mui/icons-material';
-import { ethers } from 'ethers';
+import { Search as SearchIcon } from '@mui/icons-material';
 
 import { Token, TokenAmount } from '../types';
 
@@ -29,70 +36,75 @@ interface TokenSelectorProps {
   onSelect: (token: Token, amount: string, isMax: boolean) => void;
 }
 
+/**
+ * Component for selecting tokens and specifying swap amounts
+ */
 const TokenSelector: React.FC<TokenSelectorProps> = ({ tokens, selectedTokens, onSelect }) => {
+  // Component state
   const [searchTerm, setSearchTerm] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
-  const [amount, setAmount] = useState('');
-  const [isMax, setIsMax] = useState(false);
-  
-  // State to control showing zero balances
   const [showZeroBalances, setShowZeroBalances] = useState(false);
+  const [tokenAmounts, setTokenAmounts] = useState<{[key: string]: string}>({});
   
-  // Filter tokens based on search term and balance
+  /**
+   * Filter tokens based on search term and balance
+   */
   const filteredTokens = useMemo(() => {
     return tokens.filter(token => {
-      const nameOrSymbolMatch = 
+      // Check name/symbol match
+      const matchesSearch = 
         token.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         token.symbol.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // If we're not showing zero balances, check the balance
+      // Filter zero balances if toggle is off
       if (!showZeroBalances) {
         const balance = token.balance || '0';
         const hasNonZeroBalance = parseFloat(balance) > 0;
-        return nameOrSymbolMatch && hasNonZeroBalance;
+        return matchesSearch && hasNonZeroBalance;
       }
       
-      return nameOrSymbolMatch;
+      return matchesSearch;
     });
   }, [tokens, searchTerm, showZeroBalances]);
 
-  const handleTokenClick = (token: Token) => {
-    setSelectedToken(token);
-    setAmount('');
-    setIsMax(false);
-    setDialogOpen(true);
+  /**
+   * Update amount for a specific token
+   */
+  const handleAmountChange = (tokenAddress: string, value: string) => {
+    setTokenAmounts(prev => ({
+      ...prev,
+      [tokenAddress]: value
+    }));
   };
 
-  const handleMaxClick = () => {
-    if (!selectedToken) return;
-    
-    const balance = selectedToken.balance || '0';
-    setAmount(balance);
-    setIsMax(true);
+  /**
+   * Set max amount for a token
+   */
+  const handleMaxClick = (token: Token) => {
+    const balance = token.balance || '0';
+    handleAmountChange(token.address, balance);
   };
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAmount(e.target.value);
-    setIsMax(false);
-  };
-
-  const handleAddToken = () => {
-    if (selectedToken && amount) {
-      onSelect(selectedToken, amount, isMax);
-      setDialogOpen(false);
+  /**
+   * Add token to selected list
+   */
+  const handleAddToken = (token: Token) => {
+    const amount = tokenAmounts[token.address] || '';
+    if (amount && parseFloat(amount) > 0) {
+      const isMax = amount === token.balance;
+      onSelect(token, amount, isMax);
+      // Clear amount after adding
+      setTokenAmounts(prev => ({
+        ...prev,
+        [token.address]: ''
+      }));
     }
   };
 
-  // Format token amount for display
-  const formatTokenAmount = (amount: string, decimals: number): string => {
-    try {
-      const parsed = ethers.formatUnits(amount, decimals);
-      // Trim trailing zeros and decimal point if needed
-      return parsed.replace(/\.?0+$/, '');
-    } catch (error) {
-      return amount;
-    }
+  /**
+   * Check if token is already selected
+   */
+  const isTokenSelected = (tokenAddress: string) => {
+    return selectedTokens.some(item => item.token.address === tokenAddress);
   };
 
   return (
@@ -101,6 +113,7 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ tokens, selectedTokens, o
         Select Tokens to Swap
       </Typography>
       
+      {/* Search input */}
       <TextField
         fullWidth
         placeholder="Search tokens..."
@@ -117,6 +130,7 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ tokens, selectedTokens, o
         variant="outlined"
       />
       
+      {/* Zero balance toggle */}
       <Box display="flex" justifyContent="flex-end" mt={1}>
         <FormControlLabel
           control={
@@ -135,28 +149,24 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ tokens, selectedTokens, o
         />
       </Box>
       
-      <Paper variant="outlined" sx={{ mt: 2, maxHeight: 300, overflow: 'auto' }}>
+      {/* Token list */}
+      <Paper variant="outlined" sx={{ mt: 2, maxHeight: 400, overflow: 'auto' }}>
         <List>
           {filteredTokens.map((token) => {
             const balance = token.balance || '0';
-            
-            // Display token price if available
             const priceDisplay = token.priceUsd 
               ? `$${token.priceUsd.toFixed(2)}`
               : '';
-              
-            const isSelected = selectedTokens.some(
-              item => item.token.address === token.address
-            );
+            const isSelected = isTokenSelected(token.address);
+            const amount = tokenAmounts[token.address] || '';
             
             return (
               <ListItem 
-                button 
                 key={token.address}
-                onClick={() => handleTokenClick(token)}
-                disabled={isSelected}
                 divider
+                sx={{ opacity: isSelected ? 0.5 : 1 }}
               >
+                {/* Token avatar and info */}
                 <ListItemAvatar>
                   <Avatar src={token.logoURI} alt={token.symbol}>
                     {token.symbol.charAt(0)}
@@ -169,15 +179,69 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ tokens, selectedTokens, o
                       {priceDisplay && <span>{priceDisplay}</span>}
                     </Box>
                   } 
-                  secondary={token.name}
+                  secondary={
+                    <Box>
+                      <Typography variant="caption">{token.name}</Typography>
+                      <Typography variant="caption" display="block">
+                        Balance: {balance}
+                      </Typography>
+                    </Box>
+                  }
                 />
-                <Typography variant="body2" color="textSecondary">
-                  {balance}
-                </Typography>
+                
+                {/* Amount input and add button */}
+                <Box sx={{ minWidth: 200, ml: 2 }}>
+                  <Grid container spacing={1} alignItems="center">
+                    <Grid item xs={8}>
+                      <TextField
+                        size="small"
+                        type="number"
+                        placeholder="Amount"
+                        value={amount}
+                        onChange={(e) => handleAmountChange(token.address, e.target.value)}
+                        disabled={isSelected}
+                        fullWidth
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <Typography 
+                                variant="caption"
+                                color="primary" 
+                                sx={{ cursor: 'pointer' }}
+                                onClick={() => !isSelected && handleMaxClick(token)}
+                              >
+                                MAX
+                              </Typography>
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => handleAddToken(token)}
+                        disabled={isSelected || !amount || parseFloat(amount) <= 0}
+                        fullWidth
+                      >
+                        Add
+                      </Button>
+                    </Grid>
+                  </Grid>
+                  
+                  {/* USD value display */}
+                  {token.priceUsd && amount && parseFloat(amount) > 0 && (
+                    <Typography variant="caption" color="textSecondary">
+                      ≈ ${(parseFloat(amount) * token.priceUsd).toFixed(2)}
+                    </Typography>
+                  )}
+                </Box>
               </ListItem>
             );
           })}
           
+          {/* Empty state */}
           {filteredTokens.length === 0 && (
             <ListItem>
               <ListItemText primary="No tokens found" />
@@ -185,99 +249,6 @@ const TokenSelector: React.FC<TokenSelectorProps> = ({ tokens, selectedTokens, o
           )}
         </List>
       </Paper>
-      
-      {/* Token Amount Dialog */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            {selectedToken?.symbol} Amount
-            <IconButton onClick={() => setDialogOpen(false)}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <Divider />
-        <DialogContent>
-          {selectedToken && (
-            <Box>
-              <Box display="flex" alignItems="center" mb={2}>
-                <Avatar src={selectedToken.logoURI} sx={{ mr: 1 }}>
-                  {selectedToken.symbol.charAt(0)}
-                </Avatar>
-                <Typography>{selectedToken.name}</Typography>
-              </Box>
-              
-              <Box mb={2}>
-                <Typography variant="body2" color="textSecondary" gutterBottom>
-                  Balance: {selectedToken.balance || '0'}
-                </Typography>
-                {selectedToken.priceUsd && (
-                  <Typography variant="body2" color="textSecondary">
-                    Price: ${selectedToken.priceUsd.toFixed(4)}
-                  </Typography>
-                )}
-              </Box>
-              
-              <TextField
-                label="Amount"
-                fullWidth
-                type="number"
-                value={amount}
-                onChange={handleAmountChange}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Typography 
-                        color="primary" 
-                        sx={{ cursor: 'pointer' }}
-                        onClick={handleMaxClick}
-                      >
-                        MAX
-                      </Typography>
-                    </InputAdornment>
-                  ),
-                }}
-                variant="outlined"
-                margin="normal"
-              />
-              
-              {/* Display USD value if price is available */}
-              {selectedToken.priceUsd && amount && (
-                <Typography variant="body2" color="textSecondary" align="right">
-                  ≈ ${(parseFloat(amount) * selectedToken.priceUsd).toFixed(2)} USD
-                </Typography>
-              )}
-              
-              <Box 
-                display="flex" 
-                justifyContent="space-between" 
-                mt={3}
-              >
-                <Typography 
-                  variant="button" 
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => setDialogOpen(false)}
-                >
-                  Cancel
-                </Typography>
-                <Typography 
-                  variant="button" 
-                  color="primary"
-                  sx={{ cursor: 'pointer' }}
-                  onClick={handleAddToken}
-                >
-                  Add Token
-                </Typography>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
     </Box>
   );
 };

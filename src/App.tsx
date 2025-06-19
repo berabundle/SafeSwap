@@ -1,3 +1,12 @@
+/**
+ * SafeSwap App - Main application component
+ * 
+ * This is a Safe App that allows users to:
+ * - Select multiple tokens from their Safe
+ * - Bundle swaps into a single transaction
+ * - Execute swaps through the Berabundle contract
+ */
+
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -11,6 +20,7 @@ import SwapForm from './components/SwapForm';
 import { fetchTokenList, fetchTokenBalances, fetchTokenPrices } from './services/tokenService';
 import { Token, TokenAmount, SwapBundle } from './types';
 
+// Dark theme configuration for Safe Apps
 const theme = createTheme({
   palette: {
     mode: 'dark',
@@ -23,51 +33,53 @@ const theme = createTheme({
   },
 });
 
+/**
+ * Main App component
+ * Manages global state and coordinates between token selection and swap execution
+ */
 const App: React.FC = () => {
+  // Safe SDK hooks
   const { sdk, safe } = useSafeAppsSDK();
+  
+  // Application state
   const [loading, setLoading] = useState(true);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [selectedTokens, setSelectedTokens] = useState<TokenAmount[]>([]);
-  const [targetToken, setTargetToken] = useState<Token | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
   
-  // Create provider for blockchain interaction
+  // Create ethers provider using Safe SDK
   const provider = useMemo(() => {
     const safeProvider = new SafeAppProvider(safe, sdk);
     return new ethers.BrowserProvider(safeProvider);
   }, [sdk, safe]);
 
-  // Update tokens when API key changes
+  /**
+   * Load tokens from OogaBooga API and fetch balances/prices
+   */
   const loadTokens = useCallback(async () => {
     try {
       setLoading(true);
-      // 1. Fetch token list with API key
+      
+      // Fetch token list from API
       const tokenList = await fetchTokenList(apiKey);
       
-      // 2. Filter tokens for the current chain
+      // Filter for current chain
       const filteredTokens = tokenList.tokens.filter(
         token => token.chainId === safe.chainId
       );
       
-      // 3. Fetch balances for these tokens
+      // Get on-chain balances
       const tokensWithBalances = await fetchTokenBalances(
         filteredTokens, 
         safe.safeAddress, 
         provider
       );
       
-      // 4. Fetch prices for tokens with API key
+      // Get current prices
       const tokensWithPrices = await fetchTokenPrices(tokensWithBalances, apiKey);
       
       setTokens(tokensWithPrices);
-      
-      // Set BERA as default target token
-      const beraToken = tokensWithPrices.find(t => t.symbol === 'BERA');
-      if (beraToken) {
-        setTargetToken(beraToken);
-      }
-      
       setError(null);
     } catch (err) {
       setError('Failed to load tokens. Please refresh the page.');
@@ -82,13 +94,15 @@ const App: React.FC = () => {
     loadTokens();
   }, [loadTokens]);
 
+  /**
+   * Handle token selection from TokenSelector component
+   */
   const handleTokenSelection = (token: Token, amount: string, isMax: boolean) => {
     setSelectedTokens(prev => {
-      // Check if token is already selected
       const existingIndex = prev.findIndex(item => item.token.address === token.address);
       
       if (existingIndex >= 0) {
-        // Update existing token
+        // Update existing token amount
         const updated = [...prev];
         updated[existingIndex] = { token, amount, isMax };
         return updated;
@@ -99,10 +113,16 @@ const App: React.FC = () => {
     });
   };
 
+  /**
+   * Remove token from selected list
+   */
   const handleRemoveToken = (tokenAddress: string) => {
     setSelectedTokens(prev => prev.filter(item => item.token.address !== tokenAddress));
   };
 
+  /**
+   * Handle swap execution
+   */
   const handleSwap = async (swapBundle: SwapBundle) => {
     if (selectedTokens.length === 0) {
       setError('Please select at least one token to swap');
@@ -115,14 +135,10 @@ const App: React.FC = () => {
     }
 
     try {
-      // We'll reload tokens after successful swap to update balances
       setLoading(true);
-      
-      // The actual swap logic is handled in the SwapForm component
-      // and the Safe SDK will prompt the user to confirm the transaction
       console.log('Swap bundle executed:', swapBundle);
       
-      // Reset selected tokens after successful swap
+      // Clear selected tokens after successful swap
       setSelectedTokens([]);
       setError(null);
       
@@ -136,6 +152,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Show loading spinner
   if (loading) {
     return (
       <Box 
@@ -164,12 +181,14 @@ const App: React.FC = () => {
             </Typography>
           )}
           
+          {/* Token selection component */}
           <TokenSelector 
             tokens={tokens} 
             onSelect={handleTokenSelection}
             selectedTokens={selectedTokens}
           />
           
+          {/* API key input */}
           <Box mb={3}>
             <Typography variant="subtitle1" gutterBottom>
               OogaBooga API Key
@@ -194,6 +213,7 @@ const App: React.FC = () => {
             </Typography>
           </Box>
           
+          {/* Swap execution component */}
           <SwapForm
             selectedTokens={selectedTokens}
             onRemoveToken={handleRemoveToken}
